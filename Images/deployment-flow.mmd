@@ -1,0 +1,84 @@
+graph TD
+    START([Start Deployment]) --> CHECK_PREREQ{Prerequisites<br/>Met?}
+
+    CHECK_PREREQ -->|No| FIX_PREREQ[Fix Prerequisites:<br/>- AWS CLI<br/>- Terraform >= 1.5.0<br/>- SSH Keys<br/>- terraform.tfvars]
+    FIX_PREREQ --> CHECK_PREREQ
+
+    CHECK_PREREQ -->|Yes| DEPLOY_SHARED[Deploy shared-services<br/>terraform apply]
+
+    DEPLOY_SHARED --> SHARED_RESOURCES[Creates:<br/>- VPC 10.0.0.0/16<br/>- 3 Public Subnets<br/>- Internet Gateway<br/>- Security Groups<br/>- Route Tables]
+
+    SHARED_RESOURCES --> DEPLOY_RANCHER[Deploy rancher-manager<br/>terraform apply]
+
+    DEPLOY_RANCHER --> RANCHER_RESOURCES[Creates:<br/>- EC2 Instance t3.xlarge<br/>- Elastic IP<br/>- K3s Installation<br/>- cert-manager<br/>- Rancher Manager v2.12.2]
+
+    RANCHER_RESOURCES --> RANCHER_DNS{Route53<br/>Enabled?}
+
+    RANCHER_DNS -->|Yes| RANCHER_RECORD[Create DNS Record:<br/>rancher.suse-demo-aws.kubernerdes.com]
+    RANCHER_DNS -->|No| RANCHER_IP[Use Public IP Only]
+
+    RANCHER_RECORD --> RANCHER_CERT{Let's Encrypt<br/>Enabled?}
+    RANCHER_IP --> DEPLOY_OBS
+
+    RANCHER_CERT -->|Yes| RANCHER_TLS[Request TLS Certificate<br/>via DNS-01 Challenge]
+    RANCHER_CERT -->|No| RANCHER_SELF[Use Self-Signed Certificate]
+
+    RANCHER_TLS --> DEPLOY_OBS
+    RANCHER_SELF --> DEPLOY_OBS
+
+    DEPLOY_OBS[Deploy observability<br/>terraform apply] --> OBS_RESOURCES[Creates:<br/>- EC2 Instance t3.2xlarge<br/>- Elastic IP<br/>- K3s Installation<br/>- cert-manager<br/>- SUSE Observability]
+
+    OBS_RESOURCES --> OBS_DNS{Route53<br/>Enabled?}
+
+    OBS_DNS -->|Yes| OBS_RECORD[Create DNS Record:<br/>observability.suse-demo-aws.kubernerdes.com]
+    OBS_DNS -->|No| OBS_IP[Use Public IP Only]
+
+    OBS_RECORD --> OBS_CERT{Let's Encrypt<br/>Enabled?}
+    OBS_IP --> DEPLOY_SEC
+
+    OBS_CERT -->|Yes| OBS_TLS[Request TLS Certificate<br/>via DNS-01 Challenge]
+    OBS_CERT -->|No| OBS_SELF[Use Self-Signed Certificate]
+
+    OBS_TLS --> DEPLOY_SEC
+    OBS_SELF --> DEPLOY_SEC
+
+    DEPLOY_SEC[Deploy security<br/>terraform apply] --> SEC_RESOURCES[Creates:<br/>- EC2 Instance t3.large<br/>- Elastic IP<br/>- K3s Installation<br/>- cert-manager<br/>- NeuVector v5.4.6<br/>- Trivy Server<br/>- Falco]
+
+    SEC_RESOURCES --> SEC_DNS{Route53<br/>Enabled?}
+
+    SEC_DNS -->|Yes| SEC_RECORD[Create DNS Record:<br/>security.suse-demo-aws.kubernerdes.com]
+    SEC_DNS -->|No| SEC_IP[Use Public IP Only]
+
+    SEC_RECORD --> SEC_CERT{Let's Encrypt<br/>Enabled?}
+    SEC_IP --> DEPLOYMENT_COMPLETE
+
+    SEC_CERT -->|Yes| SEC_TLS[Request TLS Certificate<br/>via DNS-01 Challenge]
+    SEC_CERT -->|No| SEC_SELF[Use Self-Signed Certificate]
+
+    SEC_TLS --> DEPLOYMENT_COMPLETE
+    SEC_SELF --> DEPLOYMENT_COMPLETE
+
+    DEPLOYMENT_COMPLETE[Deployment Complete!<br/>Wait 10-15 min for services] --> POST_INSTALL[Follow Post_Install.md:<br/>1. Configure Rancher TLS<br/>2. Add clusters to Rancher<br/>3. Add agents to Observability<br/>4. Configure integrations]
+
+    POST_INSTALL --> READY([Demo Environment Ready!])
+
+    %% Destruction Flow
+    READY -.Cleanup.-> DESTROY_START([terraform destroy])
+    DESTROY_START --> DESTROY_SEC[Destroy security<br/>REVERSE ORDER]
+    DESTROY_SEC --> DESTROY_OBS[Destroy observability]
+    DESTROY_OBS --> DESTROY_RANCHER[Destroy rancher-manager]
+    DESTROY_RANCHER --> DESTROY_SHARED[Destroy shared-services<br/>LAST]
+    DESTROY_SHARED --> CLEANUP_COMPLETE([All Resources Destroyed])
+
+    %% Styling
+    classDef startEnd fill:#4caf50,stroke:#2e7d32,stroke-width:3px,color:#fff
+    classDef decision fill:#ff9800,stroke:#e65100,stroke-width:2px
+    classDef process fill:#2196f3,stroke:#0d47a1,stroke-width:2px,color:#fff
+    classDef resource fill:#9c27b0,stroke:#4a148c,stroke-width:2px,color:#fff
+    classDef destroy fill:#f44336,stroke:#b71c1c,stroke-width:2px,color:#fff
+
+    class START,READY,CLEANUP_COMPLETE startEnd
+    class CHECK_PREREQ,RANCHER_DNS,RANCHER_CERT,OBS_DNS,OBS_CERT,SEC_DNS,SEC_CERT decision
+    class DEPLOY_SHARED,DEPLOY_RANCHER,DEPLOY_OBS,DEPLOY_SEC,POST_INSTALL process
+    class SHARED_RESOURCES,RANCHER_RESOURCES,OBS_RESOURCES,SEC_RESOURCES resource
+    class DESTROY_START,DESTROY_SEC,DESTROY_OBS,DESTROY_RANCHER,DESTROY_SHARED destroy

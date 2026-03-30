@@ -1,0 +1,147 @@
+# =============================================================================
+# SUSE Demo AWS - Unified Configuration File
+# =============================================================================
+# This single terraform.tfvars file contains configuration for all modules:
+#   - shared-services/
+#   - rancher-manager/
+#   - observability/
+#   - security/
+#
+# Usage: Each module should reference this file via:
+#   terraform apply -var-file=../terraform.tfvars
+# =============================================================================
+
+# Update this var to indicate this file has been modified - else democtl will
+#   halt.  (future use)
+tf_updated = "false"
+
+# -----------------------------------------------------------------------------
+# Global Configuration
+# -----------------------------------------------------------------------------
+aws_region  = "us-east-2"
+environment = "suse-demo-aws"
+owner       = "your-name"
+
+# -----------------------------------------------------------------------------
+# Network Configuration (shared-services module)
+# -----------------------------------------------------------------------------
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-east-2a"]
+az_count           = 1
+enable_nat_gateway = false
+
+# -----------------------------------------------------------------------------
+# Security Configuration (all modules)
+# -----------------------------------------------------------------------------
+# IMPORTANT: Restrict these to your IP address for better security
+allowed_ssh_cidr_blocks = ["0.0.0.0/0"]
+allowed_web_cidr_blocks = ["0.0.0.0/0"]
+allowed_cidr_blocks     = ["0.0.0.0/0"]
+
+# -----------------------------------------------------------------------------
+# SSH Configuration (all product modules)
+# -----------------------------------------------------------------------------
+# Paste your SSH public key here
+ssh_public_key = ""
+
+#  [ ! -f ~/.ssh/suse-demo-aws.pem ] && { aws ec2 create-key-pair --key-name suse-demo-aws --region us-east-2 --query "KeyMaterial" --output text > ~/.ssh/suse-demo-aws.pem; chmod 0600 ~/.ssh/suse-demo-aws.pem; }
+#  aws ec2 describe-key-pairs --region us-east-2  --key-name suse-demo-aws --include-public-key --query "KeyPairs[0].PublicKey" --output text
+# You can also use the following to gather your pub.key
+#  ssh-keygen -y -f ~/.ssh/suse-demo-aws.pem > ~/.ssh/suse-demo-aws.pub; cat ~/.ssh/suse-demo-aws.pub
+# NOTE:  the terraform apply will create suse-demo-aws-rancher-key also
+#  ssh -i ~/.ssh/suse-demo-aws.pem ec2-user@rancher.suse-demo-aws.kubernerdes.com
+# **********************************************************************
+
+# -----------------------------------------------------------------------------
+# EC2 Instance Configuration (per module)
+# -----------------------------------------------------------------------------
+# SUSE Rancher Manager
+rancher_instance_type      = "t3.large" # Testing this size (2025-10-18)
+rancher_root_volume_size   = 100
+
+# SUSE Observability (StackState)
+observability_instance_type     = "t3.2xlarge"  # Minimum for 10-nonha profile
+observability_root_volume_size  = 300          # Minimum 280GB for 10-nonha profile
+
+# SUSE Security (NeuVector)
+security_instance_type      = "t3.large"
+security_root_volume_size   = 100
+
+# -----------------------------------------------------------------------------
+# Elastic IP Configuration (all product modules)
+# -----------------------------------------------------------------------------
+create_eip = true
+
+# -----------------------------------------------------------------------------
+# DNS Configuration (Route53 - optional)
+# -----------------------------------------------------------------------------
+create_route53_record = true 
+root_domain           = "kubernerdes.com"
+subdomain             = "suse-demo-aws"
+route53_zone_id       = ""  # Leave empty to auto-discover 
+                            # either format: /hostedzone/Z00000000001 or Z00000000001 should be acceptable
+# To find your Route53 zone ID:
+# aws route53 list-hosted-zones-by-name --dns-name suse-demo-aws.kubernerdes.com --query "HostedZones[].Id" --output text
+
+# DNS Hostnames (per product)
+hostname_rancher       = "rancher"
+hostname_observability = "observability"
+hostname_security      = "security"
+
+# -----------------------------------------------------------------------------
+# Let's Encrypt Configuration (all product modules)
+# -----------------------------------------------------------------------------
+# Enable automatic TLS certificate provisioning via Let's Encrypt
+# Requires: create_route53_record = true and valid letsencrypt_email
+enable_letsencrypt      = true 
+letsencrypt_email       = "your-email@example.com"
+letsencrypt_environment = "production"  # Use "staging" for testing, "production" for real certs
+                                        # I tend to use production as staging introduces odd issues and errors
+
+# NOTE: Let's Encrypt uses Route53 DNS-01 challenge for certificate validation
+# - Staging environment: Higher rate limits, issues test certificates (use for testing)
+# - Production environment: Lower rate limits, issues trusted certificates (use when ready)
+# - Switch from staging to production after confirming everything works
+
+# -----------------------------------------------------------------------------
+# SUSE Registration (all modules)
+# -----------------------------------------------------------------------------
+# IMPORTANT: Update these with your SUSE subscription details
+suse_email   = "your-email@example.com"
+suse_regcode = "YOUR-REGISTRATION-CODE-HERE"
+smt_url      = ""  # Optional: SMT/RMT server URL (leave empty to use SCC)
+             # "https://rgscc.ranchergovernment.com"
+
+# -----------------------------------------------------------------------------
+# Rancher Manager Configuration
+# -----------------------------------------------------------------------------
+rancher_version      = "2.12.2"
+#cert_manager_version = "1.15.3"
+cert_manager_version = "1.18.0"
+
+# K3s version (applies to all modules: rancher-manager, observability, security)
+# Leave commented to use latest stable K3s release
+# Uncomment and specify version to pin K3s version across all modules
+# k3s_version = "v1.30.0+k3s1"  # Example: pin to specific K3s version
+
+# To find available K3s versions:
+#   https://github.com/k3s-io/k3s/releases
+
+# -----------------------------------------------------------------------------
+# SUSE Observability (StackState) Configuration
+# -----------------------------------------------------------------------------
+suse_observability_license = "YOUR_SUSE_OBSERVABILITY_LICENSE_KEY"
+suse_observability_base_url = "https://observability.suse-demo-aws.kubernerdes.com"
+suse_rancher_url = "https://rancher.suse-demo-aws.kubernerdes.com"
+suse_observability_admin_password = "" # Leave empty to auto-generate
+
+# -----------------------------------------------------------------------------
+# SUSE Security (NeuVector) Configuration
+# -----------------------------------------------------------------------------
+neuvector_version = "5.4.6"  # Latest stable version
+
+# -----------------------------------------------------------------------------
+# Optional: AMI Override (all modules)
+# -----------------------------------------------------------------------------
+# Leave empty to use latest SUSE Linux Enterprise Server AMI
+ami_id = "" # ami-0e4ba0f9cbbb667bc (SLES 15sp7 BYOS)

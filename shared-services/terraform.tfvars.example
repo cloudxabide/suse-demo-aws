@@ -1,0 +1,19 @@
+# =============================================================================
+# DEPRECATED: This file is deprecated in favor of a unified configuration
+# =============================================================================
+# Please use the unified terraform.tfvars file at the repository root instead.
+#
+# Usage:
+#   cd shared-services
+#   terraform init
+#   terraform plan -var-file=../terraform.tfvars
+#   terraform apply -var-file=../terraform.tfvars
+#
+# The root terraform.tfvars file contains all configuration for all modules:
+#   - shared-services
+#   - rancher-manager
+#   - observability
+#   - security
+#
+# See ../terraform.tfvars for the complete configuration template.
+# =============================================================================

@@ -1,0 +1,153 @@
+graph TB
+    subgraph "AWS Region: us-east-2"
+        subgraph "VPC: 10.0.0.0/16"
+            subgraph "shared-services (Foundation)"
+                IGW[Internet Gateway]
+                SG_SSH[Security Group: SSH]
+                SG_HTTPS[Security Group: HTTPS]
+                SG_HTTP[Security Group: HTTP]
+                SG_INT[Security Group: Internal]
+
+                subgraph "Public Subnets"
+                    SUBNET1[10.0.0.0/20<br/>us-east-2a]
+                    SUBNET2[10.0.16.0/20<br/>us-east-2b]
+                    SUBNET3[10.0.32.0/20<br/>us-east-2c]
+                end
+            end
+
+            subgraph "rancher-manager Module"
+                RANCHER_EIP[Elastic IP]
+                RANCHER_EC2[EC2: t3.xlarge<br/>SLES 15<br/>100GB EBS]
+                RANCHER_K3S[K3s Cluster]
+                RANCHER_CERT[cert-manager]
+                RANCHER_APP[Rancher Manager<br/>v2.12.2]
+
+                RANCHER_EC2 --> RANCHER_K3S
+                RANCHER_K3S --> RANCHER_CERT
+                RANCHER_K3S --> RANCHER_APP
+            end
+
+            subgraph "observability Module"
+                OBS_EIP[Elastic IP]
+                OBS_EC2[EC2: t3.2xlarge<br/>SLES 15<br/>300GB EBS]
+                OBS_K3S[K3s Cluster]
+                OBS_CERT[cert-manager]
+                OBS_APP[SUSE Observability<br/>StackState]
+
+                OBS_EC2 --> OBS_K3S
+                OBS_K3S --> OBS_CERT
+                OBS_K3S --> OBS_APP
+            end
+
+            subgraph "security Module"
+                SEC_EIP[Elastic IP]
+                SEC_EC2[EC2: t3.large<br/>SLES 15<br/>100GB EBS]
+                SEC_K3S[K3s Cluster]
+                SEC_CERT[cert-manager]
+                SEC_NV[NeuVector v5.4.6]
+                SEC_TRIVY[Trivy Server]
+                SEC_FALCO[Falco Runtime]
+
+                SEC_EC2 --> SEC_K3S
+                SEC_K3S --> SEC_CERT
+                SEC_K3S --> SEC_NV
+                SEC_EC2 --> SEC_TRIVY
+                SEC_EC2 --> SEC_FALCO
+            end
+        end
+
+        subgraph "Route53 DNS"
+            R53_ZONE[Hosted Zone<br/>suse-demo-aws.kubernerdes.com]
+            R53_RANCHER[A Record: rancher]
+            R53_OBS[A Record: observability]
+            R53_SEC[A Record: security]
+        end
+
+        subgraph "Let's Encrypt"
+            LE_STAGING[Staging Environment]
+            LE_PROD[Production Environment]
+        end
+    end
+
+    subgraph "External"
+        USER[User/Administrator]
+        SUSE_SCC[SUSE Customer Center]
+        LETSENCRYPT[Let's Encrypt ACME]
+    end
+
+    %% Network Connections
+    IGW --> SUBNET1
+    IGW --> SUBNET2
+    IGW --> SUBNET3
+
+    SUBNET1 --> RANCHER_EC2
+    SUBNET1 --> OBS_EC2
+    SUBNET1 --> SEC_EC2
+
+    RANCHER_EIP -.-> RANCHER_EC2
+    OBS_EIP -.-> OBS_EC2
+    SEC_EIP -.-> SEC_EC2
+
+    %% Security Groups
+    SG_SSH --> RANCHER_EC2
+    SG_SSH --> OBS_EC2
+    SG_SSH --> SEC_EC2
+
+    SG_HTTPS --> RANCHER_EC2
+    SG_HTTPS --> OBS_EC2
+    SG_HTTPS --> SEC_EC2
+
+    SG_HTTP --> RANCHER_EC2
+    SG_HTTP --> OBS_EC2
+    SG_HTTP --> SEC_EC2
+
+    SG_INT --> RANCHER_EC2
+    SG_INT --> OBS_EC2
+    SG_INT --> SEC_EC2
+
+    %% DNS Records
+    R53_ZONE --> R53_RANCHER
+    R53_ZONE --> R53_OBS
+    R53_ZONE --> R53_SEC
+
+    R53_RANCHER -.-> RANCHER_EIP
+    R53_OBS -.-> OBS_EIP
+    R53_SEC -.-> SEC_EIP
+
+    %% Certificate Management
+    RANCHER_CERT --> LETSENCRYPT
+    OBS_CERT --> LETSENCRYPT
+    SEC_CERT --> LETSENCRYPT
+
+    LETSENCRYPT --> LE_STAGING
+    LETSENCRYPT --> LE_PROD
+
+    LE_PROD -.DNS-01 Challenge.-> R53_ZONE
+
+    %% SUSE Registration
+    RANCHER_EC2 -.Register.-> SUSE_SCC
+    OBS_EC2 -.Register.-> SUSE_SCC
+    SEC_EC2 -.Register.-> SUSE_SCC
+
+    %% User Access
+    USER --> R53_RANCHER
+    USER --> R53_OBS
+    USER --> R53_SEC
+
+    %% State Dependencies
+    RANCHER_EC2 -.depends on.-> SG_SSH
+    OBS_EC2 -.depends on.-> SG_SSH
+    SEC_EC2 -.depends on.-> SG_SSH
+
+    %% Styling
+    classDef moduleBox fill:#e1f5ff,stroke:#0066cc,stroke-width:2px
+    classDef foundationBox fill:#fff4e6,stroke:#ff9800,stroke-width:3px
+    classDef externalBox fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px
+    classDef k8sBox fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    classDef securityBox fill:#ffebee,stroke:#f44336,stroke-width:2px
+
+    class shared-services foundationBox
+    class rancher-manager,observability,security moduleBox
+    class RANCHER_K3S,OBS_K3S,SEC_K3S k8sBox
+    class SG_SSH,SG_HTTPS,SG_HTTP,SG_INT,SEC_NV,SEC_TRIVY,SEC_FALCO securityBox
+    class USER,SUSE_SCC,LETSENCRYPT externalBox

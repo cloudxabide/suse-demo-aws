@@ -1,0 +1,511 @@
+#!/bin/bash
+#
+# Quick Start Script for SUSE Demo AWS Infrastructure
+#
+# This script automates the deployment and teardown of the SUSE demo environment
+# in AWS using Terraform modules.
+#
+
+# cd ~/Developer/Projects; curl -sSL https://raw.githubusercontent.com/jradtke-suse/suse-demo-aws/refs/heads/main/Scripts/democtl | bash -s build; cd suse-demo-aws; Scripts/democtl output | grep ssh_comm
+
+# Color codes for output
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly NC='\033[0m' # No Color
+
+# Project deployment order (CRITICAL: shared-services must be first)
+readonly PROJECTS=(shared-services rancher-manager observability security)
+
+# Projects directory setup
+readonly PROJECTS_DIR="${HOME}/Developer/Projects"
+readonly REPO_URL="https://github.com/jradtke-suse/suse-demo-aws.git"
+readonly REPO_NAME="suse-demo-aws"
+
+#######################################
+# Print colored message
+# Arguments:
+#   $1 - Color code
+#   $2 - Message
+#######################################
+print_msg() {
+    echo -e "${1}${2}${NC}"
+}
+
+#######################################
+# Print section header
+# Arguments:
+#   $1 - Header text
+#######################################
+print_header() {
+    echo
+    print_msg "${BLUE}" "========================================"
+    print_msg "${BLUE}" "$1"
+    print_msg "${BLUE}" "========================================"
+}
+
+#######################################
+# Archive existing demo directory with timestamp
+# Globals:
+#   PROJECTS_DIR, REPO_NAME
+#######################################
+archive_existing() {
+    if [ -d "${PROJECTS_DIR}/${REPO_NAME}" ]; then
+        local i=1
+        local archive_name
+        while true; do
+            archive_name="${REPO_NAME}-$(date +%F)-$(printf '%02d' $i)"
+            [ ! -d "${PROJECTS_DIR}/${archive_name}" ] && break
+            ((i++))
+        done
+        print_msg "${YELLOW}" "Archiving existing directory to: ${archive_name}"
+        mv "${PROJECTS_DIR}/${REPO_NAME}" "${PROJECTS_DIR}/${archive_name}"
+    fi
+}
+
+#######################################
+# Check if OpenTofu is installed and working
+#######################################
+check_tofu() {
+    if ! command -v tofu &> /dev/null; then
+        print_msg "${RED}" "ERROR: OpenTofu is not installed or not in PATH"
+        echo
+        print_msg "${YELLOW}" "OpenTofu is required to run this script."
+        echo
+        print_msg "${BLUE}" "Installation instructions for macOS:"
+        echo "  1. Using Homebrew (recommended):"
+        echo "     brew install opentofu"
+        echo
+        echo "  2. Or download from: https://opentofu.org/docs/intro/install/"
+        echo
+        print_msg "${BLUE}" "For other platforms, visit: https://opentofu.org/docs/intro/install/"
+        echo
+        exit 1
+    fi
+
+    # Verify tofu works by checking version
+    if ! tofu version &> /dev/null; then
+        print_msg "${RED}" "ERROR: OpenTofu is installed but not working correctly"
+        echo
+        print_msg "${YELLOW}" "Try running: tofu version"
+        print_msg "${YELLOW}" "If that fails, try reinstalling OpenTofu"
+        echo
+        exit 1
+    fi
+
+    # Success - optionally show version
+    local tofu_version
+    tofu_version=$(tofu version | head -n 1)
+    print_msg "${GREEN}" "✓ OpenTofu found: ${tofu_version}"
+}
+
+#######################################
+# Build: Deploy all infrastructure
+#######################################
+build() {
+    print_header "Building SUSE Demo AWS Deployment"
+
+    # Check OpenTofu installation
+    check_tofu
+
+    # Navigate to repository root (parent directory of Scripts)
+    cd "$(dirname "$0")/.." || exit 1
+
+    # Verify we're in the correct directory
+    if [ ! -d "shared-services" ]; then
+        print_msg "${RED}" "ERROR: Cannot find project directories"
+        print_msg "${YELLOW}" "Current directory: $(pwd)"
+        exit 1
+    fi
+
+    # Deploy each project in order
+    print_header "Deploying Infrastructure Modules"
+
+    for PROJECT in "${PROJECTS[@]}"; do
+        print_msg "${GREEN}" "Deploying: ${PROJECT}"
+
+        cd "${PROJECT}" || exit 1
+
+        tofu init || { print_msg "${RED}" "Failed to initialize ${PROJECT}"; exit 1; }
+        tofu plan -var-file=../terraform.tfvars || { print_msg "${RED}" "Failed to plan ${PROJECT}"; exit 1; }
+        echo "yes" | tofu apply -var-file=../terraform.tfvars || { print_msg "${RED}" "Failed to apply ${PROJECT}"; exit 1; }
+
+        cd - > /dev/null || exit 1
+        print_msg "${GREEN}" "Successfully deployed: ${PROJECT}"
+    done
+
+    # Display outputs
+    print_header "Deployment Outputs"
+
+    for PROJECT in "${PROJECTS[@]}"; do
+        echo
+        print_msg "${BLUE}" "Output from: ${PROJECT}"
+        print_msg "${BLUE}" "----------------------------------------"
+        cd "${PROJECT}" || exit 1
+        tofu output
+        cd - > /dev/null || exit 1
+    done
+
+    print_header "Deployment Complete!"
+    print_msg "${GREEN}" "All infrastructure has been successfully deployed."
+}
+
+#######################################
+# Destroy: Destroy all infrastructure
+# CRITICAL: Destroys in REVERSE order to respect dependencies
+#######################################
+destroy() {
+    print_header "Destroying SUSE Demo AWS Infrastructure"
+
+    # Check OpenTofu installation
+    check_tofu
+
+    # Navigate to repository root (parent directory of Scripts)
+    cd "$(dirname "$0")/.." || exit 1
+
+    # Verify we're in the correct directory
+    if [ ! -d "shared-services" ]; then
+        print_msg "${RED}" "ERROR: Cannot find project directories"
+        print_msg "${YELLOW}" "Current directory: $(pwd)"
+        exit 1
+    fi
+
+    # Confirm destruction
+    print_msg "${RED}" "WARNING: This will destroy ALL infrastructure!"
+    read -p "Are you sure you want to continue? (yes/no): " confirm
+    if [ "${confirm}" != "yes" ]; then
+        print_msg "${YELLOW}" "Destruction cancelled"
+        exit 0
+    fi
+
+    # Destroy in REVERSE order (critical for state dependencies)
+    # Iterate through array indices backwards (portable - works on macOS and Linux)
+    for (( idx=${#PROJECTS[@]}-1 ; idx>=0 ; idx-- )); do
+        PROJECT="${PROJECTS[idx]}"
+        print_msg "${YELLOW}" "Destroying: ${PROJECT}"
+
+        cd "${PROJECT}" || exit 1
+
+        echo "yes" | tofu destroy -var-file=../terraform.tfvars || {
+            print_msg "${RED}" "Failed to destroy ${PROJECT}"
+            print_msg "${YELLOW}" "You may need to manually destroy remaining resources"
+            exit 1
+        }
+
+        cd - > /dev/null || exit 1
+        print_msg "${GREEN}" "Successfully destroyed: ${PROJECT}"
+    done
+
+    print_header "Destruction Complete!"
+    print_msg "${GREEN}" "All infrastructure has been destroyed."
+}
+
+#######################################
+# Output: Display OpenTofu outputs from all projects
+#######################################
+output() {
+    print_header "OpenTofu Outputs from All Projects"
+
+    # Check OpenTofu installation
+    check_tofu
+
+    # Navigate to repository root (parent directory of Scripts)
+    cd "$(dirname "$0")/.." || exit 1
+
+    # Verify we're in the correct directory
+    if [ ! -d "shared-services" ]; then
+        print_msg "${RED}" "ERROR: Cannot find project directories"
+        print_msg "${YELLOW}" "Current directory: $(pwd)"
+        exit 1
+    fi
+
+    # Display outputs for each project in deployment order
+    for PROJECT in "${PROJECTS[@]}"; do
+        echo
+        print_msg "${BLUE}" "Output from: ${PROJECT}"
+        print_msg "${BLUE}" "----------------------------------------"
+
+        if [ ! -d "${PROJECT}" ]; then
+            print_msg "${YELLOW}" "WARNING: Project directory ${PROJECT} not found"
+            continue
+        fi
+
+        cd "${PROJECT}" || exit 1
+
+        # Initialize backend if needed (silent mode)
+        tofu init -backend=true > /dev/null 2>&1 || {
+            print_msg "${YELLOW}" "WARNING: Failed to initialize ${PROJECT}"
+        }
+
+        tofu output
+
+        cd - > /dev/null || exit 1
+    done
+
+    print_header "Output Display Complete!"
+}
+
+#######################################
+# Get kubeconfig: Retrieve kubeconfig files from all deployed K8s clusters
+#######################################
+getkube() {
+    print_header "Retrieving Kubeconfig Files"
+
+    # Check OpenTofu installation
+    check_tofu
+
+    # Navigate to repository root (parent directory of Scripts)
+    cd "$(dirname "$0")/.." || exit 1
+
+    # Verify we're in the correct directory
+    if [ ! -d "shared-services" ]; then
+        print_msg "${RED}" "ERROR: Cannot find project directories"
+        print_msg "${YELLOW}" "Current directory: $(pwd)"
+        exit 1
+    fi
+
+    # Create .kube directory if it doesn't exist
+    mkdir -p .kube
+
+    # Projects with Kubernetes clusters (excluding shared-services)
+    local k8s_projects=("rancher-manager" "observability" "security")
+
+    for PROJECT in "${k8s_projects[@]}"; do
+        echo
+        print_msg "${BLUE}" "Retrieving kubeconfig from: ${PROJECT}"
+        print_msg "${BLUE}" "----------------------------------------"
+
+        if [ ! -d "${PROJECT}" ]; then
+            print_msg "${YELLOW}" "WARNING: Project directory ${PROJECT} not found"
+            continue
+        fi
+
+        cd "${PROJECT}" || exit 1
+
+        # Get ssh_command output which contains the IP address
+        local ssh_cmd
+        ssh_cmd=$(tofu output -raw ssh_command 2>/dev/null)
+
+        if [ -z "$ssh_cmd" ] || [ "$ssh_cmd" = "Use AWS Systems Manager Session Manager to connect" ]; then
+            print_msg "${YELLOW}" "WARNING: No SSH access configured for ${PROJECT}"
+            print_msg "${YELLOW}" "Cannot retrieve kubeconfig without SSH key"
+            cd - > /dev/null || exit 1
+            continue
+        fi
+
+        # Extract SSH key path and host from ssh_command
+        # Expected format: "ssh -i ~/.ssh/suse-demo-aws.pem ec2-user@<IP>"
+        local ssh_key
+        local ssh_host
+        ssh_key=$(echo "$ssh_cmd" | grep -o '\-i [^ ]*' | cut -d' ' -f2)
+        ssh_host=$(echo "$ssh_cmd" | grep -o 'ec2-user@[^ ]*' | cut -d'@' -f2)
+
+        if [ -z "$ssh_key" ] || [ -z "$ssh_host" ]; then
+            print_msg "${RED}" "ERROR: Could not parse SSH command for ${PROJECT}"
+            print_msg "${YELLOW}" "SSH Command: ${ssh_cmd}"
+            cd - > /dev/null || exit 1
+            continue
+        fi
+
+        # Expand tilde in SSH key path
+        ssh_key="${ssh_key/#\~/$HOME}"
+
+        print_msg "${GREEN}" "SSH Key: ${ssh_key}"
+        print_msg "${GREEN}" "Host: ${ssh_host}"
+
+        # Use scp to retrieve kubeconfig
+        local output_file="../.kube/${PROJECT}.kubeconfig"
+
+        print_msg "${BLUE}" "Copying kubeconfig to: .kube/${PROJECT}.kubeconfig"
+
+        if scp -i "$ssh_key" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            "ec2-user@${ssh_host}:/home/ec2-user/.kube/config" "$output_file" 2>/dev/null; then
+            print_msg "${GREEN}" "✓ Successfully retrieved kubeconfig for ${PROJECT}"
+
+            # Get the hostname from OpenTofu outputs (use consistent *_hostname naming)
+            local hostname=""
+            case "$PROJECT" in
+                "rancher-manager")
+                    hostname=$(tofu output -raw rancher_hostname 2>/dev/null)
+                    ;;
+                "observability")
+                    hostname=$(tofu output -raw observability_hostname 2>/dev/null)
+                    ;;
+                "security")
+                    hostname=$(tofu output -raw neuvector_hostname 2>/dev/null)
+                    ;;
+            esac
+
+            # Determine which server address to use (hostname if available, otherwise IP)
+            local server_address="${ssh_host}"
+            if [ -n "$hostname" ] && [ "$hostname" != "null" ]; then
+                server_address="$hostname"
+                print_msg "${GREEN}" "Using hostname: ${server_address}"
+            else
+                print_msg "${YELLOW}" "No hostname available, using public IP: ${server_address}"
+            fi
+
+            # Update the server address in kubeconfig
+            if [ -f "$output_file" ]; then
+                # Use a temp file approach that works on both macOS and Linux
+                local temp_file="${output_file}.tmp"
+                if sed "s|127\.0\.0\.1:6443|${server_address}:6443|g; s|localhost:6443|${server_address}:6443|g" "$output_file" > "$temp_file"; then
+                    mv "$temp_file" "$output_file"
+                    print_msg "${GREEN}" "✓ Updated server address to: ${server_address}:6443"
+                else
+                    print_msg "${YELLOW}" "⚠ Failed to update server address in kubeconfig"
+                    rm -f "$temp_file"
+                fi
+            else
+                print_msg "${YELLOW}" "⚠ Kubeconfig file not found after copy: ${output_file}"
+            fi
+        else
+            print_msg "${RED}" "✗ Failed to retrieve kubeconfig for ${PROJECT}"
+            print_msg "${YELLOW}" "Make sure the instance is running and accessible via SSH"
+        fi
+
+        cd - > /dev/null || exit 1
+    done
+
+    echo
+    print_header "Kubeconfig Retrieval Complete!"
+
+    # Display usage instructions
+    echo
+    print_msg "${GREEN}" "Retrieved kubeconfig files:"
+    for PROJECT in "${k8s_projects[@]}"; do
+        if [ -f ".kube/${PROJECT}.kubeconfig" ]; then
+            echo "  - .kube/${PROJECT}.kubeconfig"
+        fi
+    done
+
+    echo
+    print_msg "${YELLOW}" "Usage examples:"
+    echo "  # Use with kubectl"
+    echo "  export KUBECONFIG=\$(pwd)/.kube/rancher-manager.kubeconfig"
+    echo "  kubectl get nodes"
+    echo
+    echo "  # Or specify directly"
+    echo "  kubectl --kubeconfig=.kube/observability.kubeconfig get pods -A"
+    echo
+}
+
+#######################################
+# Display help information
+#######################################
+help() {
+    cat << EOF
+
+SUSE Demo AWS - Quick Start Script
+
+USAGE:
+    $(basename "$0") [OPTION]
+
+OPTIONS:
+    build       Deploy all SUSE demo infrastructure in AWS
+                - Creates/archives project directory
+                - Clones repository
+                - Deploys: shared-services, rancher-manager, observability, security
+                - Displays all outputs
+
+    destroy     Destroy all SUSE demo infrastructure
+                - Destroys in reverse order: security, observability, rancher-manager, shared-services
+                - Prompts for confirmation before proceeding
+                - CRITICAL: Respects Terraform state dependencies
+
+    output      Display OpenTofu outputs from all deployed projects
+                - Shows outputs in deployment order
+                - Useful for retrieving URLs, IPs, and other deployment information
+
+    getkube     Retrieve kubeconfig files from all deployed K8s clusters
+                - Copies kubeconfig from each project to .kube/<project>.kubeconfig
+                - Updates server addresses to use public IPs
+                - Retrieves from: rancher-manager, observability, security
+
+    help        Display this help message
+
+DEPLOYMENT ORDER:
+    The infrastructure MUST be deployed in this specific order due to state dependencies:
+    1. shared-services (VPC, networking, security groups)
+    2. rancher-manager (SUSE Rancher Manager)
+    3. observability (SUSE Observability stack)
+    4. security (SUSE Security tools)
+
+DESTRUCTION ORDER:
+    Infrastructure MUST be destroyed in REVERSE order:
+    1. security
+    2. observability
+    3. rancher-manager
+    4. shared-services
+
+PREREQUISITES:
+    - AWS CLI configured with valid credentials
+    - OpenTofu >= 1.5.0 installed
+    - SSH key pair generated
+    - terraform.tfvars configured with your settings
+
+EXAMPLES:
+    # Deploy infrastructure
+    $(basename "$0") build
+
+    # Display OpenTofu outputs
+    $(basename "$0") output
+
+    # Retrieve kubeconfig files
+    $(basename "$0") getkube
+
+    # Destroy infrastructure
+    $(basename "$0") destroy
+
+    # Show help
+    $(basename "$0") help
+
+NOTES:
+    - This is a DEMO/LAB environment only - not suitable for production
+    - All modules share a single terraform.tfvars file
+    - Default security settings allow access from 0.0.0.0/0
+    - Restrict CIDR blocks in terraform.tfvars for production use
+
+For more information, see: https://github.com/jradtke-suse/suse-demo-aws
+
+EOF
+}
+
+#######################################
+# Main execution
+#######################################
+main() {
+    case "${1:-}" in
+        build)
+            build
+            ;;
+        destroy)
+            destroy
+            ;;
+        output)
+            output
+            ;;
+        getkube)
+            getkube
+            ;;
+        help|--help|-h)
+            help
+            ;;
+        "")
+            print_msg "${RED}" "ERROR: No option specified"
+            echo
+            help
+            exit 1
+            ;;
+        *)
+            print_msg "${RED}" "ERROR: Invalid option: $1"
+            echo
+            help
+            exit 1
+            ;;
+    esac
+}
+
+# Run main with all arguments
+main "$@"

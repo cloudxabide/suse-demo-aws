@@ -1,0 +1,18 @@
+# =============================================================================
+# DEPRECATED: This file is deprecated in favor of a unified configuration
+# =============================================================================
+# Please use the unified terraform.tfvars file at the repository root instead.
+#
+# Usage:
+#   cd rancher-manager
+#   terraform init
+#   terraform plan -var-file=../terraform.tfvars
+#   terraform apply -var-file=../terraform.tfvars
+#
+# The root terraform.tfvars file contains all configuration for all modules.
+# See ../terraform.tfvars for the complete configuration template.
+#
+# Note: The variable 'instance_type' has been renamed to 'rancher_instance_type'
+# and 'root_volume_size' has been renamed to 'rancher_root_volume_size'.
+# ============================================================================= 
+
