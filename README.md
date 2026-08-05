@@ -54,14 +54,14 @@ Demo Control / Demo Cuddle / Demo [Cuttle Fish?](https://en.wikipedia.org/wiki/C
 
 I created Scripts/democtl to manage this demo in a more automated way.  I do recommend that you do the deployment manually a few times to see what is actually happening.  **Then**... knock yerself out with the cuttle command.
 
-Sync this this repo and cd in to it, copy terraform.tfvars.example to terraform.tfvars and update it, then have some fun:
+Sync this this repo and cd in to it, copy terraform.tfvars.example-suse-demo-aws to terraform.tfvars and update it, then have some fun:
 
 ```bash
 mkdir -p ~/Developer/Projects; cd $_
 # Archive existing demo directory
 [ -d "suse-demo-aws" ] && { i=1; while [ -d "suse-demo-aws-$(date +%F)-$(printf '%02d' $i)" ]; do ((i++)); done; mv suse-demo-aws "suse-demo-aws-$(date +%F)-$(printf '%02d' $i)"; }
 git clone https://github.com/jradtke-suse/suse-demo-aws.git; cd suse-demo-aws
-cp ../terraform.tfvars.example terraform.tfvars
+cp ../terraform.tfvars.example-suse-demo-aws terraform.tfvars
 cat terraform.tfvars
 Scripts/democtl build
 
@@ -111,7 +111,7 @@ Deploy projects in the following order to ensure dependencies are met:
 
 Note: I store a "hydrated configuraiton" that has all the values populated and just copy it in to my project directory
 
-Copy terraform.tfvars.example to terraform.tfvars then, edit the file with your settings - typically:
+Copy terraform.tfvars.example-suse-demo-aws to terraform.tfvars then, edit the file with your settings - typically:
 
 * owner
 * ssh_public_key
@@ -129,7 +129,7 @@ mkdir -p ~/Developer/Projects; cd $_
 # Archive existing demo directory
 [ -d "suse-demo-aws" ] && { i=1; while [ -d "suse-demo-aws-$(date +%F)-$(printf '%02d' $i)" ]; do ((i++)); done; mv suse-demo-aws "suse-demo-aws-$(date +%F)-$(printf '%02d' $i)"; }
 git clone https://github.com/jradtke-suse/suse-demo-aws.git; cd suse-demo-aws
-cp ../terraform.tfvars.example terraform.tfvars 
+cp ../terraform.tfvars.example-suse-demo-aws terraform.tfvars 
 # Confirm the values have been updated
 egrep 'owner|ssh_public_key|rancher_instance_type|route53_zone_id|letsencrypt_email|suse_email|suse_regcode|suse_observability_license|suse_observability_admin_password|neuvector_version' terraform.tfvars 
 ```
