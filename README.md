@@ -60,7 +60,7 @@ Sync this this repo and cd in to it, copy terraform.tfvars.example-suse-demo-aws
 mkdir -p ~/Developer/Projects; cd $_
 # Archive existing demo directory
 [ -d "suse-demo-aws" ] && { i=1; while [ -d "suse-demo-aws-$(date +%F)-$(printf '%02d' $i)" ]; do ((i++)); done; mv suse-demo-aws "suse-demo-aws-$(date +%F)-$(printf '%02d' $i)"; }
-git clone https://github.com/jradtke-suse/suse-demo-aws.git; cd suse-demo-aws
+git clone https://github.com/cloudxabide/suse-demo-aws.git; cd suse-demo-aws
 cp ../terraform.tfvars.example-suse-demo-aws terraform.tfvars
 cat terraform.tfvars
 Scripts/democtl build
