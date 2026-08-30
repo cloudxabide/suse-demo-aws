@@ -115,7 +115,8 @@ fi
 curl -sfL https://get.k3s.io | sh -s - server \
   --tls-san ${hostname} \
   --tls-san $PUBLIC_IP \
-  --tls-san $PRIVATE_IP
+  --tls-san $PRIVATE_IP \
+  --kubelet-arg="fail-cgroupv1=false"
 
 # Wait for K3s service to be active
 echo "Waiting for K3s service to be active..."
@@ -432,8 +433,8 @@ fi
 # Install Trivy
 echo "Installing Trivy vulnerability scanner..."
 TRIVY_INSTALLED=false
-if wget https://github.com/aquasecurity/trivy/releases/download/v0.56.2/trivy_0.56.2_Linux-64bit.rpm; then
-    if rpm -ivh trivy_0.56.2_Linux-64bit.rpm; then
+if wget https://github.com/aquasecurity/trivy/releases/download/v0.74.0/trivy_0.74.0_Linux-64bit.rpm; then
+    if rpm -ivh trivy_0.74.0_Linux-64bit.rpm; then
         echo "Trivy installed successfully"
         TRIVY_INSTALLED=true
     else
@@ -453,7 +454,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/local/bin/trivy server --listen 0.0.0.0:8080
+ExecStart=/usr/bin/trivy server --listen 0.0.0.0:8080
 Restart=on-failure
 
 [Install]

@@ -95,7 +95,8 @@ fi
 curl -sfL https://get.k3s.io | sh -s - server \
   --tls-san ${hostname} \
   --tls-san $PUBLIC_IP \
-  --tls-san $PRIVATE_IP
+  --tls-san $PRIVATE_IP \
+  --kubelet-arg="fail-cgroupv1=false"
 
 # Wait for K3s service to be active
 echo "Waiting for K3s service to be active..."
