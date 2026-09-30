@@ -57,11 +57,13 @@ I created Scripts/democtl to manage this demo in a more automated way.  I do rec
 Sync this this repo and cd in to it, copy terraform.tfvars.example-suse-demo-aws to terraform.tfvars and update it, then have some fun:
 
 ```bash
+DOMAIN="suse-demo-aws"
 mkdir -p ~/Developer/Projects; cd $_
+
 # Archive existing demo directory
 [ -d "suse-demo-aws" ] && { i=1; while [ -d "suse-demo-aws-$(date +%F)-$(printf '%02d' $i)" ]; do ((i++)); done; mv suse-demo-aws "suse-demo-aws-$(date +%F)-$(printf '%02d' $i)"; }
 git clone https://github.com/cloudxabide/suse-demo-aws.git; cd suse-demo-aws
-cp ../terraform.tfvars.example-suse-demo-aws terraform.tfvars
+cp ../terraform.tfvars.example-$DOMAIN terraform.tfvars
 cat terraform.tfvars
 Scripts/democtl build
 
