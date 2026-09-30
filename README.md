@@ -56,7 +56,7 @@ I created Scripts/democtl to manage this demo in a more automated way.  I do rec
 
 Sync this this repo and cd in to it, copy terraform.tfvars.example-suse-demo-aws to terraform.tfvars and update it, then have some fun:
 
->!!NOTE]
+> [!NOTE]
 > I stage a "hydrated" copy of the tfvars files for different "DOMAIN" - you certainly do not need to do the same
 
 ```bash
