@@ -20,21 +20,21 @@ tf_updated = "false"
 # -----------------------------------------------------------------------------
 # shared-services (core networking/VPC) is always deployed - it has no toggle.
 # Set any of the following to false to skip that module during `democtl build`.
-rancher_deploy        = true
-observability_deploy  = true
-security_deploy       = true
+rancher_deploy        = true ## REVIEW ##
+observability_deploy  = true ## REVIEW ##
+security_deploy       = true ## REVIEW ##
 
 # -----------------------------------------------------------------------------
 # Global Configuration
 # -----------------------------------------------------------------------------
-aws_region  = "us-east-2"
-environment = "suse-demo-aws"
-owner       = "your-name"
+aws_region  = "us-east-2" 
+environment = "suse-demo-aws" ## UPDATE ##
+owner       = "your-name" ## UPDATE ##
 
 # -----------------------------------------------------------------------------
 # Network Configuration (shared-services module)
 # -----------------------------------------------------------------------------
-vpc_cidr           = "10.0.0.0/16"
+vpc_cidr           = "10.0.0.0/16" 
 availability_zones = ["us-east-2a"]
 az_count           = 1
 enable_nat_gateway = false
@@ -141,8 +141,14 @@ cert_manager_version = "1.18.0"
 # SUSE Observability (StackState) Configuration
 # -----------------------------------------------------------------------------
 suse_observability_license = "YOUR_SUSE_OBSERVABILITY_LICENSE_KEY"
-suse_observability_base_url = "https://observability.suse-demo-aws.kubernerdes.com"
-suse_rancher_url = "https://rancher.suse-demo-aws.kubernerdes.com"
+
+# Leave both blank to auto-derive as https://<hostname_*>.<subdomain>.<root_domain>
+# (matching the Route53/cert-manager hostname configured above). Only set
+# these explicitly if pointing at an external/pre-existing Rancher or
+# Observability instance - otherwise they're easy to leave stale after a
+# subdomain/hostname rename.
+suse_observability_base_url = ""
+suse_rancher_url            = ""
 suse_observability_admin_password = "" # Leave empty to auto-generate
 
 # -----------------------------------------------------------------------------

@@ -19,8 +19,8 @@ output "suse_observability_url" {
 }
 
 output "suse_observability_base_url" {
-  description = "Configured base URL for SUSE Observability"
-  value       = var.suse_observability_base_url
+  description = "Effective base URL for SUSE Observability (explicit override, or derived from hostname_observability/subdomain/root_domain)"
+  value       = local.effective_observability_base_url
 }
 
 output "fqdn" {

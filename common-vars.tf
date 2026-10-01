@@ -9,7 +9,7 @@ variable "aws_region" {
 }
 
 variable "environment" {
-  description = "Environment name (e.g., dev, staging, prod)"
+  description = "Human-readable name for this deployment (e.g., suse-demo-aws, suse-in-aws). Used as a resource-naming/tagging prefix and as the fallback local domain suffix when Route53 isn't configured - NOT a dev/staging/prod indicator. For Let's Encrypt's staging-vs-production toggle, see letsencrypt_environment."
   type        = string
   default     = "demo"
 }
@@ -233,13 +233,13 @@ variable "suse_observability_license" {
 }
 
 variable "suse_observability_base_url" {
-  description = "Base URL for SUSE Observability (e.g., https://observability.example.com)"
+  description = "Base URL for SUSE Observability. Leave blank (default) to derive it from hostname_observability/subdomain/root_domain, matching the Route53 FQDN; set explicitly only to override, e.g. for an external/pre-existing instance."
   type        = string
   default     = ""
 }
 
 variable "suse_rancher_url" {
-  description = "Base URL for SUSE Rancher (e.g., https://rancher.example.com)"
+  description = "Base URL for SUSE Rancher, as reported to SUSE Observability. Leave blank (default) to derive it from hostname_rancher/subdomain/root_domain, matching rancher-manager's Route53 FQDN; set explicitly only to override, e.g. for an external/pre-existing Rancher."
   type        = string
   default     = ""
 }

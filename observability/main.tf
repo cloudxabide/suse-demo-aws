@@ -26,6 +26,20 @@ provider "aws" {
 locals {
   # Build FQDN: hostname.subdomain.root_domain (e.g., observability.suse-demo-aws.kubernerdes.com)
   observability_fqdn = var.create_route53_record && var.subdomain != "" && var.root_domain != "" ? "${var.hostname_observability}.${var.subdomain}.${var.root_domain}" : "observability.${var.environment}.local"
+
+  # Rancher's FQDN, computed the same way the rancher-manager module computes
+  # its own hostname. Duplicated here (rather than depending on
+  # rancher-manager's state) only as a fallback for effective_rancher_url below.
+  rancher_fqdn = var.create_route53_record && var.subdomain != "" && var.root_domain != "" ? "${var.hostname_rancher}.${var.subdomain}.${var.root_domain}" : "rancher.${var.environment}.local"
+
+  # suse_rancher_url / suse_observability_base_url override the URLs handed to
+  # StackState (e.g. to point at an external/pre-existing Rancher). Left blank
+  # (the default), they're derived from the same hostname/subdomain/root_domain
+  # vars used for Route53 + cert-manager above, so they can't drift out of sync
+  # with the actual FQDN on a rename.
+  effective_rancher_url            = var.suse_rancher_url != "" ? var.suse_rancher_url : "https://${local.rancher_fqdn}"
+  effective_observability_base_url = var.suse_observability_base_url != "" ? var.suse_observability_base_url : "https://${local.observability_fqdn}"
+
   # Get zone ID and strip /hostedzone/ prefix if present (handles user input like "/hostedzone/Z123" or "Z123")
   raw_zone_id        = var.route53_zone_id != "" ? var.route53_zone_id : (var.create_route53_record && var.subdomain != "" && var.root_domain != "" ? data.aws_route53_zone.main[0].zone_id : "")
   zone_id            = trimprefix(local.raw_zone_id, "/hostedzone/")
@@ -235,9 +249,9 @@ resource "aws_instance" "observability" {
 
   user_data = templatefile("${path.module}/user-data.sh", {
     suse_observability_license        = var.suse_observability_license
-    suse_observability_base_url       = var.suse_observability_base_url
+    suse_observability_base_url       = local.effective_observability_base_url
     suse_observability_admin_password = var.suse_observability_admin_password
-    suse_rancher_url                  = var.suse_rancher_url
+    suse_rancher_url                  = local.effective_rancher_url
     suse_email                        = var.suse_email
     suse_regcode                      = var.suse_regcode
     smt_url                           = var.smt_url
