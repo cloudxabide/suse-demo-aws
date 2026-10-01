@@ -260,6 +260,15 @@ destroy() {
 
         cd "${PROJECT}" || exit 1
 
+        # Re-init before destroy: a module may have no local state yet (fresh
+        # clone) or a partially-initialized/interrupted .terraform dir (no
+        # lock file) left over from an earlier build - `tofu destroy` alone
+        # fails in both cases with "Inconsistent dependency lock file".
+        tofu init || {
+            print_msg "${RED}" "Failed to initialize ${PROJECT}"
+            exit 1
+        }
+
         echo "yes" | tofu destroy -var-file=../terraform.tfvars || {
             print_msg "${RED}" "Failed to destroy ${PROJECT}"
             print_msg "${YELLOW}" "You may need to manually destroy remaining resources"
