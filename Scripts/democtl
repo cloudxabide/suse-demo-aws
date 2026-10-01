@@ -18,6 +18,23 @@ readonly NC='\033[0m' # No Color
 # Project deployment order (CRITICAL: shared-services must be first)
 readonly PROJECTS=(shared-services rancher-manager observability security)
 
+#######################################
+# Name of the terraform.tfvars toggle that gates a project, if any.
+# shared-services is core infrastructure and is never gated (prints nothing).
+# Arguments:
+#   $1 - project name (e.g. rancher-manager)
+# NOTE: plain `case`, not an associative array - stock macOS /bin/bash (3.2)
+# doesn't support `declare -A`, and this script must work with it.
+#######################################
+project_toggle_var() {
+    case "$1" in
+        rancher-manager) echo "rancher_deploy" ;;
+        observability)   echo "observability_deploy" ;;
+        security)        echo "security_deploy" ;;
+        *)                echo "" ;;
+    esac
+}
+
 # Projects directory setup
 readonly PROJECTS_DIR="${HOME}/Developer/Projects"
 readonly REPO_URL="https://github.com/jradtke-suse/suse-demo-aws.git"
@@ -62,6 +79,50 @@ archive_existing() {
         print_msg "${YELLOW}" "Archiving existing directory to: ${archive_name}"
         mv "${PROJECTS_DIR}/${REPO_NAME}" "${PROJECTS_DIR}/${archive_name}"
     fi
+}
+
+#######################################
+# Check whether a project's deploy toggle is enabled in terraform.tfvars.
+# Projects with no entry in PROJECT_TOGGLES (e.g. shared-services) are
+# always enabled. A toggle that is missing from terraform.tfvars defaults
+# to enabled (matches the `default = true` in common-vars.tf).
+# Arguments:
+#   $1 - project name (e.g. rancher-manager)
+# Must be run from the repository root.
+#######################################
+is_project_enabled() {
+    local project="$1"
+    local toggle_var
+    toggle_var=$(project_toggle_var "$project")
+
+    [ -z "$toggle_var" ] && return 0
+    [ -f "terraform.tfvars" ] || return 0
+
+    local line
+    line=$(grep -E "^[[:space:]]*${toggle_var}[[:space:]]*=" terraform.tfvars | tail -n1)
+
+    [ -z "$line" ] && return 0
+    echo "$line" | grep -qE '=[[:space:]]*false'
+    [ $? -eq 0 ] && return 1
+    return 0
+}
+
+#######################################
+# Build the list of projects to act on, honoring terraform.tfvars toggles.
+# shared-services is always included (core infrastructure).
+# Must be run from the repository root.
+#######################################
+get_enabled_projects() {
+    local enabled=()
+    local project
+
+    for project in "${PROJECTS[@]}"; do
+        if is_project_enabled "$project"; then
+            enabled+=("$project")
+        fi
+    done
+
+    printf '%s\n' "${enabled[@]}"
 }
 
 #######################################
@@ -119,10 +180,22 @@ build() {
         exit 1
     fi
 
-    # Deploy each project in order
+    # Determine which projects are enabled via terraform.tfvars toggles
+    local ENABLED_PROJECTS=()
+    while IFS= read -r PROJECT; do
+        ENABLED_PROJECTS+=("$PROJECT")
+    done < <(get_enabled_projects)
+
     print_header "Deploying Infrastructure Modules"
+    print_msg "${BLUE}" "Modules to deploy: ${ENABLED_PROJECTS[*]}"
 
     for PROJECT in "${PROJECTS[@]}"; do
+        if ! is_project_enabled "${PROJECT}"; then
+            print_msg "${YELLOW}" "Skipping: ${PROJECT} (disabled via $(project_toggle_var "${PROJECT}") in terraform.tfvars)"
+        fi
+    done
+
+    for PROJECT in "${ENABLED_PROJECTS[@]}"; do
         print_msg "${GREEN}" "Deploying: ${PROJECT}"
 
         cd "${PROJECT}" || exit 1
@@ -138,7 +211,7 @@ build() {
     # Display outputs
     print_header "Deployment Outputs"
 
-    for PROJECT in "${PROJECTS[@]}"; do
+    for PROJECT in "${ENABLED_PROJECTS[@]}"; do
         echo
         print_msg "${BLUE}" "Output from: ${PROJECT}"
         print_msg "${BLUE}" "----------------------------------------"
@@ -148,7 +221,7 @@ build() {
     done
 
     print_header "Deployment Complete!"
-    print_msg "${GREEN}" "All infrastructure has been successfully deployed."
+    print_msg "${GREEN}" "Successfully deployed: ${ENABLED_PROJECTS[*]}"
 }
 
 #######################################
@@ -403,14 +476,19 @@ USAGE:
     $(basename "$0") [OPTION]
 
 OPTIONS:
-    build       Deploy all SUSE demo infrastructure in AWS
+    build       Deploy SUSE demo infrastructure in AWS
                 - Creates/archives project directory
                 - Clones repository
-                - Deploys: shared-services, rancher-manager, observability, security
-                - Displays all outputs
+                - Always deploys: shared-services (core infrastructure)
+                - Optionally deploys: rancher-manager, observability, security
+                  (controlled by rancher_deploy / observability_deploy /
+                  security_deploy in terraform.tfvars - default: true)
+                - Displays outputs for all deployed modules
 
     destroy     Destroy all SUSE demo infrastructure
                 - Destroys in reverse order: security, observability, rancher-manager, shared-services
+                - Ignores the build-time toggles below and attempts all four
+                  modules, so anything still deployed gets cleaned up
                 - Prompts for confirmation before proceeding
                 - CRITICAL: Respects Terraform state dependencies
 
@@ -427,10 +505,18 @@ OPTIONS:
 
 DEPLOYMENT ORDER:
     The infrastructure MUST be deployed in this specific order due to state dependencies:
-    1. shared-services (VPC, networking, security groups)
-    2. rancher-manager (SUSE Rancher Manager)
-    3. observability (SUSE Observability stack)
-    4. security (SUSE Security tools)
+    1. shared-services (VPC, networking, security groups) - always deployed
+    2. rancher-manager (SUSE Rancher Manager)              - toggle: rancher_deploy
+    3. observability (SUSE Observability stack)            - toggle: observability_deploy
+    4. security (SUSE Security tools)                      - toggle: security_deploy
+
+MODULE TOGGLES (terraform.tfvars):
+    shared-services is core infrastructure and is always deployed.
+    Set any of the following to false to skip that module on the next build:
+        rancher_deploy        = true   # Rancher Manager
+        observability_deploy  = true   # SUSE Observability
+        security_deploy       = true   # SUSE Security (NeuVector)
+    A missing toggle defaults to true (deployed).
 
 DESTRUCTION ORDER:
     Infrastructure MUST be destroyed in REVERSE order:

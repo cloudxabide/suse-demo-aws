@@ -289,3 +289,25 @@ variable "enable_letsencrypt" {
   type        = bool
   default     = false
 }
+
+# -----------------------------------------------------------------------------
+# Module Deploy Toggles (used by Scripts/democtl, not by Terraform resources)
+# -----------------------------------------------------------------------------
+# shared-services (core infrastructure) is always deployed and has no toggle.
+variable "rancher_deploy" {
+  description = "Whether democtl should deploy the Rancher Manager module"
+  type        = bool
+  default     = true
+}
+
+variable "observability_deploy" {
+  description = "Whether democtl should deploy the SUSE Observability module"
+  type        = bool
+  default     = true
+}
+
+variable "security_deploy" {
+  description = "Whether democtl should deploy the SUSE Security (NeuVector) module"
+  type        = bool
+  default     = true
+}

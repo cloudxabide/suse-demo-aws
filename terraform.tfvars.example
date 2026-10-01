@@ -16,6 +16,15 @@
 tf_updated = "false"
 
 # -----------------------------------------------------------------------------
+# Module Deploy Toggles (read by Scripts/democtl build)
+# -----------------------------------------------------------------------------
+# shared-services (core networking/VPC) is always deployed - it has no toggle.
+# Set any of the following to false to skip that module during `democtl build`.
+rancher_deploy        = true
+observability_deploy  = true
+security_deploy       = true
+
+# -----------------------------------------------------------------------------
 # Global Configuration
 # -----------------------------------------------------------------------------
 aws_region  = "us-east-2"
@@ -50,6 +59,7 @@ ssh_public_key = ""
 #  ssh-keygen -y -f ~/.ssh/suse-demo-aws.pem > ~/.ssh/suse-demo-aws.pub; cat ~/.ssh/suse-demo-aws.pub
 # NOTE:  the terraform apply will create suse-demo-aws-rancher-key also
 #  ssh -i ~/.ssh/suse-demo-aws.pem ec2-user@rancher.suse-demo-aws.kubernerdes.com
+#  aws ec2 import-key-pair --key-name suse-demo-aws --public-key-material fileb://~/.ssh/suse-demo-aws.pub
 # **********************************************************************
 
 # -----------------------------------------------------------------------------
