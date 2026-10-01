@@ -126,14 +126,14 @@ smt_url      = ""  # Optional: SMT/RMT server URL (leave empty to use SCC)
 # -----------------------------------------------------------------------------
 # Rancher Manager Configuration
 # -----------------------------------------------------------------------------
-rancher_version      = "2.12.2"
+rancher_version      = "2.15.2"  # Current rancher-stable chart/app version (2026-10)
 #cert_manager_version = "1.15.3"
-cert_manager_version = "1.18.0"
+cert_manager_version = "1.21.2"  # Current supported cert-manager release line (2026-10)
 
 # K3s version (applies to all modules: rancher-manager, observability, security)
 # Leave commented to use latest stable K3s release
 # Uncomment and specify version to pin K3s version across all modules
-# k3s_version = "v1.30.0+k3s1"  # Example: pin to specific K3s version
+# k3s_version = "v1.36.4+k3s1"  # Example: pin to specific K3s version - certified for Rancher 2.15.x (v1.34-v1.36)
 
 # To find available K3s versions:
 #   https://github.com/k3s-io/k3s/releases
@@ -155,7 +155,7 @@ suse_observability_admin_password = "" # Leave empty to auto-generate
 # -----------------------------------------------------------------------------
 # SUSE Security (NeuVector) Configuration
 # -----------------------------------------------------------------------------
-neuvector_version = "5.4.6"  # Latest stable version
+neuvector_version = "5.6.2"  # Latest stable version (chart v2.11.2) as of 2026-10 - documentation only, not currently passed to `helm install --version`
 
 # -----------------------------------------------------------------------------
 # Optional: AMI Override (all modules)

@@ -203,19 +203,19 @@ variable "smt_url" {
 variable "rancher_version" {
   description = "Rancher version to install"
   type        = string
-  default     = "2.9.2"
+  default     = "2.15.2"
 }
 
 variable "cert_manager_version" {
   description = "Cert-manager version to install"
   type        = string
-  default     = "1.15.3"
+  default     = "1.21.2"
 }
 
 variable "neuvector_version" {
   description = "NeuVector app version to install (Helm will use latest compatible chart version)"
   type        = string
-  default     = "5.4.6"
+  default     = "5.6.2"
 }
 
 variable "k3s_version" {
