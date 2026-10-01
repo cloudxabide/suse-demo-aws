@@ -53,13 +53,14 @@ allowed_cidr_blocks     = ["0.0.0.0/0"]
 # Paste your SSH public key here
 ssh_public_key = ""
 
-#  [ ! -f ~/.ssh/suse-demo-aws.pem ] && { aws ec2 create-key-pair --key-name suse-demo-aws --region us-east-2 --query "KeyMaterial" --output text > ~/.ssh/suse-demo-aws.pem; chmod 0600 ~/.ssh/suse-demo-aws.pem; }
-#  aws ec2 describe-key-pairs --region us-east-2  --key-name suse-demo-aws --include-public-key --query "KeyPairs[0].PublicKey" --output text
+# you should run: export DOMAIN=suse-aws-hybrid-lab # example value there
+#  [ ! -f ~/.ssh/$DOMAIN.pem ] && { aws ec2 create-key-pair --key-name $DOMAIN --region us-east-2 --query "KeyMaterial" --output text > ~/.ssh/$DOMAIN.pem; chmod 0600 ~/.ssh/$DOMAIN.pem; }
+#  aws ec2 describe-key-pairs --region us-east-2  --key-name $DOMAIN --include-public-key --query "KeyPairs[0].PublicKey" --output text
 # You can also use the following to gather your pub.key
-#  ssh-keygen -y -f ~/.ssh/suse-demo-aws.pem > ~/.ssh/suse-demo-aws.pub; cat ~/.ssh/suse-demo-aws.pub
+#  ssh-keygen -y -f ~/.ssh/$DOMAIN.pem > ~/.ssh/$DOMAIN.pub; cat ~/.ssh/$DOMAIN.pub
 # NOTE:  the terraform apply will create suse-demo-aws-rancher-key also
-#  ssh -i ~/.ssh/suse-demo-aws.pem ec2-user@rancher.suse-demo-aws.kubernerdes.com
-#  aws ec2 import-key-pair --key-name suse-demo-aws --public-key-material fileb://~/.ssh/suse-demo-aws.pub
+#  ssh -i ~/.ssh/$DOMAIN.pem ec2-user@rancher.$DOMAIN.kubernerdes.com
+#  aws ec2 import-key-pair --key-name $DOMAIN --public-key-material fileb://~/.ssh/$DOMAIN.pub
 # **********************************************************************
 
 # -----------------------------------------------------------------------------
@@ -86,12 +87,12 @@ create_eip = true
 # DNS Configuration (Route53 - optional)
 # -----------------------------------------------------------------------------
 create_route53_record = true 
-root_domain           = "kubernerdes.com"
-subdomain             = "suse-demo-aws"
+root_domain           = "kubernerdes.com" ## UPDATE ##
+subdomain             = "suse-demo-aws" ## UPDATE ##
 route53_zone_id       = ""  # Leave empty to auto-discover 
                             # either format: /hostedzone/Z00000000001 or Z00000000001 should be acceptable
 # To find your Route53 zone ID:
-# aws route53 list-hosted-zones-by-name --dns-name suse-demo-aws.kubernerdes.com --query "HostedZones[].Id" --output text
+# aws route53 list-hosted-zones-by-name --dns-name $DOMAIN.kubernerdes.com --query "HostedZones[].Id" --output text
 
 # DNS Hostnames (per product)
 hostname_rancher       = "rancher"
