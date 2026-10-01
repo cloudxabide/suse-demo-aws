@@ -127,7 +127,6 @@ smt_url      = ""  # Optional: SMT/RMT server URL (leave empty to use SCC)
 # Rancher Manager Configuration
 # -----------------------------------------------------------------------------
 rancher_version      = "2.15.2"  # Current rancher-stable chart/app version (2026-10)
-#cert_manager_version = "1.15.3"
 cert_manager_version = "1.21.2"  # Current supported cert-manager release line (2026-10)
 
 # K3s version (applies to all modules: rancher-manager, observability, security)
