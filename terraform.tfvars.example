@@ -61,6 +61,7 @@ ssh_public_key = ""
 # NOTE:  the terraform apply will create suse-demo-aws-rancher-key also
 #  ssh -i ~/.ssh/$DOMAIN.pem ec2-user@rancher.$DOMAIN.kubernerdes.com
 #  aws ec2 import-key-pair --key-name $DOMAIN --public-key-material fileb://~/.ssh/$DOMAIN.pub
+aws ec2 describe-key-pairs --region us-east-2  --key-name $DOMAIN --include-public-key --query "KeyPairs[0].PublicKey" --output text
 # **********************************************************************
 
 # -----------------------------------------------------------------------------
